@@ -1,0 +1,58 @@
+steps:
+  # Build the container image with platform specification
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--platform=linux/amd64'
+      - '-t'
+      - 'europe-north1-docker.pkg.dev/$PROJECT_ID/pipedrive-mcp/pipedrive-mcp-server:$COMMIT_SHA'
+      - '-t'
+      - 'europe-north1-docker.pkg.dev/$PROJECT_ID/pipedrive-mcp/pipedrive-mcp-server:latest'
+      - '.'
+
+  # Push the container image to Artifact Registry (Nordic region)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'europe-north1-docker.pkg.dev/$PROJECT_ID/pipedrive-mcp/pipedrive-mcp-server'
+
+  # Deploy container image to Cloud Run in Nordic region
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'pipedrive-mcp-server'
+      - '--image'
+      - 'europe-north1-docker.pkg.dev/$PROJECT_ID/pipedrive-mcp/pipedrive-mcp-server:$COMMIT_SHA'
+      - '--region'
+      - 'europe-north1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '300'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--set-env-vars'
+      - 'NODE_ENV=production'
+      - '--cpu-boost'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  dynamic_substitutions: true
+
+# Store images in Artifact Registry (Nordic region)
+images:
+  - 'europe-north1-docker.pkg.dev/$PROJECT_ID/pipedrive-mcp/pipedrive-mcp-server:$COMMIT_SHA'
+  - 'europe-north1-docker.pkg.dev/$PROJECT_ID/pipedrive-mcp/pipedrive-mcp-server:latest'
