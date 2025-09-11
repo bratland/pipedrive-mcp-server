@@ -16,6 +16,7 @@ import { pipelineTools } from './tools/pipelines.js';
 import { activityTools } from './tools/activities.js';
 import { noteTools } from './tools/notes.js';
 import { searchTools } from './tools/search.js';
+import { userTools } from './tools/users.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -49,6 +50,7 @@ const allTools = [
   ...activityTools,
   ...noteTools,
   ...searchTools,
+  ...userTools,
 ];
 
 const prompts = [
@@ -196,6 +198,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'search_items': {
         const { term, ...params } = args as any;
         const result = await client.searchItems(term, params);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+      
+      case 'get_users': {
+        const result = await client.getUsers(args as any);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+      
+      case 'get_user': {
+        const { id } = args as { id: number };
+        const result = await client.getUser(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+      
+      case 'get_current_user': {
+        const result = await client.getCurrentUser();
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       }
       

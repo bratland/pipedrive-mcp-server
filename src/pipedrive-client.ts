@@ -157,6 +157,27 @@ export interface Note {
   [key: string]: any;
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  active_flag: boolean;
+  is_admin?: number;
+  role_id?: number;
+  timezone_name?: string;
+  timezone_offset?: string;
+  locale?: string;
+  lang?: number;
+  created?: string;
+  modified?: string;
+  default_currency?: string;
+  phone?: string;
+  company_id?: number;
+  company_name?: string;
+  company_domain?: string;
+  [key: string]: any;
+}
+
 export interface SearchResult {
   result_score?: number;
   item: {
@@ -404,6 +425,45 @@ export class PipedriveClient {
       this.client.get('/itemSearch', {
         params: { term, ...params }
       })
+    );
+  }
+
+  async getUsers(params?: {
+    start?: number;
+    limit?: number;
+  }): Promise<PipedriveResponse<User[]>> {
+    return this.handleRequest<User[]>(
+      this.client.get('/users', { params })
+    );
+  }
+
+  async getUser(id: number): Promise<PipedriveResponse<User>> {
+    return this.handleRequest<User>(
+      this.client.get(`/users/${id}`)
+    );
+  }
+
+  async getCurrentUser(): Promise<PipedriveResponse<User>> {
+    return this.handleRequest<User>(
+      this.client.get('/users/me')
+    );
+  }
+
+  // Generic method to make raw requests to Pipedrive API
+  async makeRequest(path: string, params?: any): Promise<PipedriveResponse<any>> {
+    if (path.includes('?')) {
+      // Path already has query params, just append api_token
+      const separator = path.includes('api_token') ? '&' : '&';
+      path += `${separator}api_token=${this.apiToken}`;
+    } else if (params) {
+      // Use existing params handling
+      return this.handleRequest<any>(
+        this.client.get(path, { params })
+      );
+    }
+    
+    return this.handleRequest<any>(
+      this.client.get(path)
     );
   }
 }

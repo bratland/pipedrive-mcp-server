@@ -7,6 +7,7 @@ import { pipelineTools } from './tools/pipelines.js';
 import { activityTools } from './tools/activities.js';
 import { noteTools } from './tools/notes.js';
 import { searchTools } from './tools/search.js';
+import { userTools } from './tools/users.js';
 import { UserManager } from './auth/user-manager.js';
 import { AuthMiddleware, UserRateLimiter, createRateLimitMiddleware } from './auth/auth-middleware.js';
 import dotenv from 'dotenv';
@@ -67,6 +68,7 @@ const allTools = [
   ...activityTools,
   ...noteTools,
   ...searchTools,
+  ...userTools,
 ];
 
 const prompts = [
@@ -584,6 +586,29 @@ app.post('/mcp',
                 }
                 const { term: searchTerm, ...searchParams } = toolArgs;
                 result = await client.searchItems(searchTerm, searchParams);
+                break;
+                
+              case 'get_users':
+                result = await client.getUsers(toolArgs || {});
+                break;
+                
+              case 'get_user':
+                if (!toolArgs?.id) {
+                  return res.status(400).json({
+                    jsonrpc: '2.0',
+                    id: id || null,
+                    error: {
+                      code: -32602,
+                      message: 'Invalid params',
+                      data: 'Missing required "id" parameter for get_user'
+                    }
+                  });
+                }
+                result = await client.getUser(toolArgs.id);
+                break;
+                
+              case 'get_current_user':
+                result = await client.getCurrentUser();
                 break;
                 
               default:
