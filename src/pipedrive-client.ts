@@ -466,4 +466,145 @@ export class PipedriveClient {
       this.client.get(path)
     );
   }
+
+  // Token-optimized methods
+  async getDealsOptimized(params?: {
+    start?: number;
+    limit?: number;
+    status?: 'all_not_deleted' | 'open' | 'won' | 'lost' | 'deleted';
+    user_id?: number;
+  }): Promise<PipedriveResponse<any[]>> {
+    // Limit to max 50 items for optimization
+    const safeParams = {
+      ...params,
+      limit: Math.min(params?.limit || 20, 50)
+    };
+    return this.getDeals(safeParams);
+  }
+
+  async getPersonsOptimized(params?: {
+    start?: number;
+    limit?: number;
+    user_id?: number;
+  }): Promise<PipedriveResponse<any[]>> {
+    const safeParams = {
+      ...params,
+      limit: Math.min(params?.limit || 20, 50)
+    };
+    return this.getPersons(safeParams);
+  }
+
+  async getOrganizationsOptimized(params?: {
+    start?: number;
+    limit?: number;
+    user_id?: number;
+  }): Promise<PipedriveResponse<any[]>> {
+    const safeParams = {
+      ...params,
+      limit: Math.min(params?.limit || 20, 50)
+    };
+    return this.getOrganizations(safeParams);
+  }
+
+  async getActivitiesOptimized(params?: {
+    start?: number;
+    limit?: number;
+    user_id?: number;
+    done?: boolean;
+  }): Promise<PipedriveResponse<any[]>> {
+    const { done, ...otherParams } = params || {};
+    const safeParams = {
+      ...otherParams,
+      limit: Math.min(params?.limit || 20, 50),
+      done: done !== undefined ? (done ? 1 : 0) as 0 | 1 : undefined
+    };
+    return this.getActivities(safeParams);
+  }
+
+  async getOverview(params?: {
+    include_recent_deals?: boolean;
+    include_recent_activities?: boolean;
+    user_id?: number;
+  }): Promise<PipedriveResponse<any>> {
+    const { 
+      include_recent_deals = true, 
+      include_recent_activities = true,
+      user_id 
+    } = params || {};
+
+    const overview: any = {
+      timestamp: new Date().toISOString(),
+      user_filter: user_id || null,
+    };
+
+    try {
+      // Get recent deals (limited to 5)
+      if (include_recent_deals) {
+        const dealsResponse = await this.getDeals({ 
+          limit: 5, 
+          user_id,
+          status: 'open' 
+        });
+        overview.recent_deals = {
+          count: dealsResponse.additional_data?.pagination?.more_items_in_collection ? '5+' : dealsResponse.data?.length || 0,
+          items: dealsResponse.data?.slice(0, 5).map((deal: any) => ({
+            id: deal.id,
+            title: deal.title,
+            value: deal.value,
+            currency: deal.currency,
+            status: deal.status,
+            user_id: deal.user_id,
+          })) || []
+        };
+      }
+
+      // Get recent activities (limited to 5)
+      if (include_recent_activities) {
+        const activitiesResponse = await this.getActivities({ 
+          limit: 5, 
+          user_id 
+        });
+        overview.recent_activities = {
+          count: activitiesResponse.additional_data?.pagination?.more_items_in_collection ? '5+' : activitiesResponse.data?.length || 0,
+          items: activitiesResponse.data?.slice(0, 5).map((activity: any) => ({
+            id: activity.id,
+            type: activity.type,
+            subject: activity.subject,
+            done: activity.done,
+            due_date: activity.due_date,
+            user_id: activity.user_id,
+          })) || []
+        };
+      }
+
+      return {
+        success: true,
+        data: overview,
+        additional_data: {
+          optimization: {
+            applied: true,
+            note: 'This is a token-optimized overview with limited data'
+          }
+        }
+      } as PipedriveResponse<any>;
+
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        data: null
+      };
+    }
+  }
+
+  async searchItemsOptimized(term: string, params?: {
+    item_types?: string;
+    limit?: number;
+  }): Promise<PipedriveResponse<any[]>> {
+    const safeParams = {
+      ...params,
+      limit: Math.min(params?.limit || 10, 20)
+    };
+    return this.searchItems(term, safeParams);
+  }
 }

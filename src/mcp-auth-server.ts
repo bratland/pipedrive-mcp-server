@@ -8,6 +8,8 @@ import { activityTools } from './tools/activities.js';
 import { noteTools } from './tools/notes.js';
 import { searchTools } from './tools/search.js';
 import { userTools } from './tools/users.js';
+import { optimizedTools } from './tools/optimized.js';
+import { optimizeResponse } from './utils/token-optimizer.js';
 import { UserManager } from './auth/user-manager.js';
 import { AuthMiddleware, UserRateLimiter, createRateLimitMiddleware } from './auth/auth-middleware.js';
 import dotenv from 'dotenv';
@@ -69,6 +71,7 @@ const allTools = [
   ...noteTools,
   ...searchTools,
   ...userTools,
+  ...optimizedTools,
 ];
 
 const prompts = [
@@ -609,6 +612,48 @@ app.post('/mcp',
                 
               case 'get_current_user':
                 result = await client.getCurrentUser();
+                break;
+                
+              // Optimized tools for token management
+              case 'get_deals_summary':
+                result = await client.getDealsOptimized(toolArgs || {});
+                result = optimizeResponse(result, 'deals', { maxItems: 20, summarizeItems: true });
+                break;
+                
+              case 'get_persons_summary':
+                result = await client.getPersonsOptimized(toolArgs || {});
+                result = optimizeResponse(result, 'persons', { maxItems: 20, summarizeItems: true });
+                break;
+                
+              case 'get_organizations_summary':
+                result = await client.getOrganizationsOptimized(toolArgs || {});
+                result = optimizeResponse(result, 'organizations', { maxItems: 20, summarizeItems: true });
+                break;
+                
+              case 'get_activities_summary':
+                result = await client.getActivitiesOptimized(toolArgs || {});
+                result = optimizeResponse(result, 'activities', { maxItems: 20, summarizeItems: true });
+                break;
+                
+              case 'get_overview':
+                result = await client.getOverview(toolArgs || {});
+                break;
+                
+              case 'search_summarized':
+                if (!toolArgs?.term) {
+                  return res.status(400).json({
+                    jsonrpc: '2.0',
+                    id: id || null,
+                    error: {
+                      code: -32602,
+                      message: 'Invalid params',
+                      data: 'Missing required "term" parameter for search_summarized'
+                    }
+                  });
+                }
+                const { term: summaryTerm, ...summaryParams } = toolArgs;
+                result = await client.searchItemsOptimized(summaryTerm, summaryParams);
+                result = optimizeResponse(result, 'deals', { maxItems: 10, summarizeItems: true });
                 break;
                 
               default:

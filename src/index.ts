@@ -17,6 +17,8 @@ import { activityTools } from './tools/activities.js';
 import { noteTools } from './tools/notes.js';
 import { searchTools } from './tools/search.js';
 import { userTools } from './tools/users.js';
+import { optimizedTools } from './tools/optimized.js';
+import { optimizeResponse } from './utils/token-optimizer.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -51,6 +53,7 @@ const allTools = [
   ...noteTools,
   ...searchTools,
   ...userTools,
+  ...optimizedTools,
 ];
 
 const prompts = [
@@ -215,6 +218,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'get_current_user': {
         const result = await client.getCurrentUser();
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+      
+      // Optimized tools for token management
+      case 'get_deals_summary': {
+        const result = await client.getDealsOptimized(args as any);
+        const optimized = optimizeResponse(result, 'deals', { maxItems: 20, summarizeItems: true });
+        return { content: [{ type: 'text', text: JSON.stringify(optimized, null, 2) }] };
+      }
+      
+      case 'get_persons_summary': {
+        const result = await client.getPersonsOptimized(args as any);
+        const optimized = optimizeResponse(result, 'persons', { maxItems: 20, summarizeItems: true });
+        return { content: [{ type: 'text', text: JSON.stringify(optimized, null, 2) }] };
+      }
+      
+      case 'get_organizations_summary': {
+        const result = await client.getOrganizationsOptimized(args as any);
+        const optimized = optimizeResponse(result, 'organizations', { maxItems: 20, summarizeItems: true });
+        return { content: [{ type: 'text', text: JSON.stringify(optimized, null, 2) }] };
+      }
+      
+      case 'get_activities_summary': {
+        const result = await client.getActivitiesOptimized(args as any);
+        const optimized = optimizeResponse(result, 'activities', { maxItems: 20, summarizeItems: true });
+        return { content: [{ type: 'text', text: JSON.stringify(optimized, null, 2) }] };
+      }
+      
+      case 'get_overview': {
+        const result = await client.getOverview(args as any);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+      
+      case 'search_summarized': {
+        const { term, ...params } = args as any;
+        const result = await client.searchItemsOptimized(term, params);
+        const optimized = optimizeResponse(result, 'deals', { maxItems: 10, summarizeItems: true });
+        return { content: [{ type: 'text', text: JSON.stringify(optimized, null, 2) }] };
       }
       
       default:
