@@ -55,5 +55,5 @@ EXPOSE 8080
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the MCP-compliant server for Cloud Run
-CMD ["node", "dist/mcp-compliant-server.js"]
+# Start the authenticated MCP server for Cloud Run
+CMD ["node", "dist/mcp-auth-server.js"]

@@ -8,11 +8,13 @@
     "dev:http": "tsx watch src/http-server.ts",
     "dev:mcp": "tsx watch src/mcp-http-server.ts",
     "dev:compliant": "tsx watch src/mcp-compliant-server.ts",
+    "dev:auth": "tsx watch src/mcp-auth-server.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "start:http": "node dist/http-server.js",
     "start:mcp": "node dist/mcp-http-server.js",
     "start:compliant": "node dist/mcp-compliant-server.js",
+    "start:auth": "node dist/mcp-auth-server.js",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
