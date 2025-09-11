@@ -607,4 +607,172 @@ export class PipedriveClient {
     };
     return this.searchItems(term, safeParams);
   }
+
+  // Quarterly analysis methods
+  async getCurrentQuarterDeals(params?: {
+    status?: 'all_not_deleted' | 'open' | 'won' | 'lost';
+    user_id?: number;
+    limit?: number;
+  }): Promise<PipedriveResponse<any[]>> {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    
+    // Determine current quarter dates
+    let startDate: string, endDate: string;
+    if (month >= 1 && month <= 3) {
+      startDate = `${year}-01-01`;
+      endDate = `${year}-03-31`;
+    } else if (month >= 4 && month <= 6) {
+      startDate = `${year}-04-01`;
+      endDate = `${year}-06-30`;
+    } else if (month >= 7 && month <= 9) {
+      startDate = `${year}-07-01`;
+      endDate = `${year}-09-30`;
+    } else {
+      startDate = `${year}-10-01`;
+      endDate = `${year}-12-31`;
+    }
+
+    // Get deals within current quarter date range
+    const response = await this.handleRequest<Deal[]>(
+      this.client.get('/deals', {
+        params: {
+          ...params,
+          start: 0,
+          limit: Math.min(params?.limit || 50, 100),
+          // Note: Pipedrive API filtering by date might need to be done client-side
+        }
+      })
+    );
+
+    // Filter deals by current quarter (client-side filtering since Pipedrive API date filtering is limited)
+    if (response.success && response.data) {
+      const quarterDeals = response.data.filter(deal => {
+        if (!deal.add_time) return false;
+        const dealDate = new Date(deal.add_time).toISOString().split('T')[0];
+        return dealDate >= startDate && dealDate <= endDate;
+      });
+
+      return {
+        ...response,
+        data: quarterDeals,
+        additional_data: {
+          ...response.additional_data,
+          quarter_filter: {
+            start_date: startDate,
+            end_date: endDate,
+            quarter: `Q${Math.ceil(month / 3)} ${year}`,
+            total_filtered: quarterDeals.length,
+            original_count: response.data.length
+          }
+        } as any
+      };
+    }
+
+    return response;
+  }
+
+  async getQuarterSummary(quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'current' = 'current', year?: number, user_id?: number): Promise<PipedriveResponse<any>> {
+    const currentYear = year || new Date().getFullYear();
+    const now = new Date();
+    
+    // Determine quarter dates
+    let targetQuarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    let startDate: string, endDate: string;
+    
+    if (quarter === 'current') {
+      const month = now.getMonth() + 1;
+      if (month >= 1 && month <= 3) {
+        targetQuarter = 'Q1';
+        startDate = `${currentYear}-01-01`;
+        endDate = `${currentYear}-03-31`;
+      } else if (month >= 4 && month <= 6) {
+        targetQuarter = 'Q2';
+        startDate = `${currentYear}-04-01`;
+        endDate = `${currentYear}-06-30`;
+      } else if (month >= 7 && month <= 9) {
+        targetQuarter = 'Q3';
+        startDate = `${currentYear}-07-01`;
+        endDate = `${currentYear}-09-30`;
+      } else {
+        targetQuarter = 'Q4';
+        startDate = `${currentYear}-10-01`;
+        endDate = `${currentYear}-12-31`;
+      }
+    } else {
+      targetQuarter = quarter;
+      const quarters = {
+        Q1: { start: `${currentYear}-01-01`, end: `${currentYear}-03-31` },
+        Q2: { start: `${currentYear}-04-01`, end: `${currentYear}-06-30` },
+        Q3: { start: `${currentYear}-07-01`, end: `${currentYear}-09-30` },
+        Q4: { start: `${currentYear}-10-01`, end: `${currentYear}-12-31` },
+      };
+      startDate = quarters[quarter].start;
+      endDate = quarters[quarter].end;
+    }
+
+    try {
+      // Get deals for the quarter
+      const dealsResponse = await this.getDeals({ limit: 500, user_id });
+      
+      // Filter by quarter (client-side)
+      const quarterDeals = dealsResponse.data?.filter(deal => {
+        if (!deal.add_time) return false;
+        const dealDate = new Date(deal.add_time).toISOString().split('T')[0];
+        return dealDate >= startDate && dealDate <= endDate;
+      }) || [];
+
+      // Calculate metrics
+      const totalValue = quarterDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
+      const wonDeals = quarterDeals.filter(deal => deal.status === 'won');
+      const openDeals = quarterDeals.filter(deal => deal.status === 'open');
+      const lostDeals = quarterDeals.filter(deal => deal.status === 'lost');
+      const wonValue = wonDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
+      const pipelineValue = openDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
+
+      const summary = {
+        quarter: `${targetQuarter} ${currentYear}`,
+        date_range: { start: startDate, end: endDate },
+        current_date: now.toISOString().split('T')[0],
+        is_current_quarter: quarter === 'current',
+        metrics: {
+          total_deals: quarterDeals.length,
+          total_value: totalValue,
+          won_deals: wonDeals.length,
+          won_value: wonValue,
+          open_deals: openDeals.length,
+          pipeline_value: pipelineValue,
+          lost_deals: lostDeals.length,
+          win_rate: quarterDeals.length > 0 ? (wonDeals.length / quarterDeals.length * 100).toFixed(1) + '%' : '0%',
+        },
+        top_deals: quarterDeals
+          .sort((a, b) => (b.value || 0) - (a.value || 0))
+          .slice(0, 5)
+          .map(deal => ({
+            id: deal.id,
+            title: deal.title,
+            value: deal.value,
+            status: deal.status,
+            user_id: deal.user_id
+          }))
+      };
+
+      return {
+        success: true,
+        data: summary,
+        additional_data: {
+          quarter_analysis: true,
+          date_context_applied: true
+        } as any
+      };
+
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        data: null
+      };
+    }
+  }
 }

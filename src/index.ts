@@ -18,7 +18,9 @@ import { noteTools } from './tools/notes.js';
 import { searchTools } from './tools/search.js';
 import { userTools } from './tools/users.js';
 import { optimizedTools } from './tools/optimized.js';
+import { quarterlyTools } from './tools/quarterly.js';
 import { optimizeResponse } from './utils/token-optimizer.js';
+import { addDateContextToResponse } from './utils/date-context.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -54,6 +56,7 @@ const allTools = [
   ...searchTools,
   ...userTools,
   ...optimizedTools,
+  ...quarterlyTools,
 ];
 
 const prompts = [
@@ -104,7 +107,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case 'get_deals': {
         const result = await client.getDeals(args as any);
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        const withContext = addDateContextToResponse(result);
+        return { content: [{ type: 'text', text: JSON.stringify(withContext, null, 2) }] };
       }
       
       case 'get_deal': {
@@ -255,6 +259,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await client.searchItemsOptimized(term, params);
         const optimized = optimizeResponse(result, 'deals', { maxItems: 10, summarizeItems: true });
         return { content: [{ type: 'text', text: JSON.stringify(optimized, null, 2) }] };
+      }
+      
+      // Quarterly tools with date context
+      case 'get_current_quarter_deals': {
+        const result = await client.getCurrentQuarterDeals(args as any);
+        const withContext = addDateContextToResponse(result);
+        return { content: [{ type: 'text', text: JSON.stringify(withContext, null, 2) }] };
+      }
+      
+      case 'get_quarter_summary': {
+        const { quarter = 'current', year, user_id } = args as any;
+        const result = await client.getQuarterSummary(quarter, year, user_id);
+        const withContext = addDateContextToResponse(result);
+        return { content: [{ type: 'text', text: JSON.stringify(withContext, null, 2) }] };
+      }
+      
+      case 'get_quarterly_progress': {
+        // This is an alias for get_quarter_summary with current quarter
+        const user_id = args?.user_id ? Number(args.user_id) : undefined;
+        const result = await client.getQuarterSummary('current', undefined, user_id);
+        const withContext = addDateContextToResponse(result);
+        return { content: [{ type: 'text', text: JSON.stringify(withContext, null, 2) }] };
       }
       
       default:
