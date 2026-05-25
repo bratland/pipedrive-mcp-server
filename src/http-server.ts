@@ -68,13 +68,13 @@ const server = new FastMCP<AuthSession>({
     message: "ok",
   },
   authenticate: async (request: http.IncomingMessage) => {
-    const auth = request.headers.authorization;
-    if (!auth?.startsWith("Bearer ")) {
-      throw new Error("Missing or invalid Authorization header");
-    }
-    const token = auth.slice(7);
-    if (token !== serverSecret) {
-      throw new Error("Invalid server secret");
+    const bearer = request.headers.authorization?.startsWith("Bearer ")
+      ? request.headers.authorization.slice(7)
+      : undefined;
+    const url = new URL(request.url || "/", `http://${request.headers.host}`);
+    const key = url.searchParams.get("key") || undefined;
+    if ((bearer || key) !== serverSecret) {
+      throw new Error("Unauthorized");
     }
     return { authenticated: true };
   },
