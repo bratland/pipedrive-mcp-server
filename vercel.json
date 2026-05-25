@@ -2,13 +2,8 @@
   "buildCommand": "",
   "framework": null,
   "functions": {
-    "api/index.ts": {
+    "api/mcp.ts": {
       "maxDuration": 30
     }
-  },
-  "rewrites": [
-    { "source": "/mcp", "destination": "/api" },
-    { "source": "/health", "destination": "/api" },
-    { "source": "/", "destination": "/api" }
-  ]
+  }
 }
