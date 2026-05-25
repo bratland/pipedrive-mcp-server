@@ -4,6 +4,9 @@
   "functions": {
     "api/mcp.ts": {
       "maxDuration": 30
+    },
+    "api/mcp/[key].ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [

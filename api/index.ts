@@ -65,7 +65,7 @@ const BASE="${baseUrl}";
 function generate(){
   const k=document.getElementById("key").value.trim();
   if(!k)return;
-  const url=BASE+"/api/mcp?key="+encodeURIComponent(k);
+  const url=BASE+"/api/mcp/"+encodeURIComponent(k);
   document.getElementById("url-val").textContent=url;
   document.getElementById("config-val").textContent=JSON.stringify({"mcpServers":{"pipedrive":{"type":"streamable-http","url":url}}},null,2);
   document.getElementById("output").classList.add("show");
