@@ -1,142 +1,107 @@
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { FastMCP } from "fastmcp";
+import { z } from "zod";
+import { PipedriveClient } from "../pipedrive-client.js";
+import { optimizeResponse } from "../utils/token-optimizer.js";
 
-export const optimizedTools: Tool[] = [
-  {
-    name: 'get_deals_summary',
-    description: 'Get a summarized list of deals (optimized for token usage) - shows essential fields only',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        start: {
-          type: 'number',
-          description: 'Pagination start (default: 0)',
-        },
-        limit: {
-          type: 'number',
-          description: 'Number of items to return (default: 20, max: 50 for summary)',
-        },
-        status: {
-          type: 'string',
-          enum: ['all_not_deleted', 'open', 'won', 'lost', 'deleted'],
-          description: 'Filter by deal status',
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by user ID',
-        },
-      },
+export function registerOptimizedTools(server: FastMCP, client: PipedriveClient) {
+  server.addTool({
+    name: "get_deals_summary",
+    description: "Get a token-optimized summary of deals (compact format for AI consumption)",
+    parameters: z.object({
+      start: z.number().optional(),
+      limit: z.number().optional().describe("Max items (default 20, max 50)"),
+      status: z.enum(["all_not_deleted", "open", "won", "lost", "deleted"]).optional(),
+      user_id: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const safeParams = { ...args, limit: Math.min(args.limit || 20, 50) };
+      const result = await client.getDeals(safeParams);
+      const optimized = optimizeResponse(result, "deals", { maxItems: 20, summarizeItems: true });
+      return JSON.stringify(optimized, null, 2);
     },
-  },
-  {
-    name: 'get_persons_summary', 
-    description: 'Get a summarized list of persons (optimized for token usage) - shows essential fields only',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        start: {
-          type: 'number',
-          description: 'Pagination start (default: 0)',
-        },
-        limit: {
-          type: 'number',
-          description: 'Number of items to return (default: 20, max: 50 for summary)',
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by user ID',
-        },
-      },
+  });
+
+  server.addTool({
+    name: "get_persons_summary",
+    description: "Get a token-optimized summary of persons",
+    parameters: z.object({
+      start: z.number().optional(),
+      limit: z.number().optional(),
+      user_id: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const safeParams = { ...args, limit: Math.min(args.limit || 20, 50) };
+      const result = await client.getPersons(safeParams);
+      const optimized = optimizeResponse(result, "persons", { maxItems: 20, summarizeItems: true });
+      return JSON.stringify(optimized, null, 2);
     },
-  },
-  {
-    name: 'get_organizations_summary',
-    description: 'Get a summarized list of organizations (optimized for token usage) - shows essential fields only',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        start: {
-          type: 'number',
-          description: 'Pagination start (default: 0)',
-        },
-        limit: {
-          type: 'number', 
-          description: 'Number of items to return (default: 20, max: 50 for summary)',
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by user ID',
-        },
-      },
+  });
+
+  server.addTool({
+    name: "get_organizations_summary",
+    description: "Get a token-optimized summary of organizations",
+    parameters: z.object({
+      start: z.number().optional(),
+      limit: z.number().optional(),
+      user_id: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const safeParams = { ...args, limit: Math.min(args.limit || 20, 50) };
+      const result = await client.getOrganizations(safeParams);
+      const optimized = optimizeResponse(result, "organizations", { maxItems: 20, summarizeItems: true });
+      return JSON.stringify(optimized, null, 2);
     },
-  },
-  {
-    name: 'get_activities_summary',
-    description: 'Get a summarized list of activities (optimized for token usage) - shows essential fields only',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        start: {
-          type: 'number',
-          description: 'Pagination start (default: 0)',
-        },
-        limit: {
-          type: 'number',
-          description: 'Number of items to return (default: 20, max: 50 for summary)',
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by user ID',
-        },
-        done: {
-          type: 'boolean',
-          description: 'Filter by completion status',
-        },
-      },
+  });
+
+  server.addTool({
+    name: "get_activities_summary",
+    description: "Get a token-optimized summary of activities",
+    parameters: z.object({
+      start: z.number().optional(),
+      limit: z.number().optional(),
+      user_id: z.number().optional(),
+      done: z.boolean().optional(),
+    }),
+    execute: async (args) => {
+      const { done, ...otherParams } = args;
+      const safeParams = {
+        ...otherParams,
+        limit: Math.min(args.limit || 20, 50),
+        done: done !== undefined ? (done ? 1 : 0) as 0 | 1 : undefined,
+      };
+      const result = await client.getActivities(safeParams);
+      const optimized = optimizeResponse(result, "activities", { maxItems: 20, summarizeItems: true });
+      return JSON.stringify(optimized, null, 2);
     },
-  },
-  {
-    name: 'get_overview',
-    description: 'Get a high-level overview with key metrics and recent items (very token-efficient)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        include_recent_deals: {
-          type: 'boolean',
-          description: 'Include 5 most recent deals (default: true)',
-          default: true,
-        },
-        include_recent_activities: {
-          type: 'boolean', 
-          description: 'Include 5 most recent activities (default: true)',
-          default: true,
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by specific user (optional)',
-        },
-      },
+  });
+
+  server.addTool({
+    name: "get_overview",
+    description: "Get a high-level overview of recent deals and activities (token-optimized)",
+    parameters: z.object({
+      include_recent_deals: z.boolean().optional().describe("Include recent deals (default true)"),
+      include_recent_activities: z.boolean().optional().describe("Include recent activities (default true)"),
+      user_id: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const result = await client.getOverview(args);
+      return JSON.stringify(result, null, 2);
     },
-  },
-  {
-    name: 'search_summarized',
-    description: 'Search across all Pipedrive items with summarized results (token-optimized)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        term: {
-          type: 'string',
-          description: 'Search term',
-        },
-        item_types: {
-          type: 'string',
-          description: 'Comma-separated list of item types to search (deal,person,organization,product)',
-        },
-        limit: {
-          type: 'number',
-          description: 'Number of results to return (default: 10, max: 20 for summary)',
-        },
-      },
-      required: ['term'],
+  });
+
+  server.addTool({
+    name: "search_summarized",
+    description: "Search and return token-optimized results",
+    parameters: z.object({
+      term: z.string().describe("Search term"),
+      item_types: z.string().optional(),
+      limit: z.number().optional(),
+    }),
+    execute: async ({ term, ...params }) => {
+      const safeParams = { ...params, limit: Math.min(params.limit || 10, 20) };
+      const result = await client.searchItems(term, safeParams);
+      const optimized = optimizeResponse(result, "deals", { maxItems: 10, summarizeItems: true });
+      return JSON.stringify(optimized, null, 2);
     },
-  },
-];
+  });
+}

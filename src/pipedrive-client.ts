@@ -1,5 +1,3 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
-
 export interface PipedriveConfig {
   apiToken: string;
   baseUrl?: string;
@@ -207,44 +205,51 @@ export interface SearchResult {
 }
 
 export class PipedriveClient {
-  private client: AxiosInstance;
+  private baseUrl: string;
   private apiToken: string;
 
   constructor(config: PipedriveConfig) {
     this.apiToken = config.apiToken;
-    const baseUrl = config.baseUrl || 'https://api.pipedrive.com/v1';
-
-    this.client = axios.create({
-      baseURL: baseUrl,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    this.client.interceptors.request.use((config) => {
-      config.params = {
-        ...config.params,
-        api_token: this.apiToken,
-      };
-      return config;
-    });
+    this.baseUrl = config.baseUrl || 'https://api.pipedrive.com/v1';
   }
 
-  private async handleRequest<T>(request: Promise<any>): Promise<PipedriveResponse<T>> {
+  private buildUrl(path: string, params?: Record<string, any>): string {
+    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+    url.searchParams.set('api_token', this.apiToken);
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, String(value));
+        }
+      }
+    }
+    return url.toString();
+  }
+
+  private async handleRequest<T>(method: string, path: string, options?: { params?: Record<string, any>; body?: any }): Promise<PipedriveResponse<T>> {
     try {
-      const response = await request;
-      return response.data;
-    } catch (error) {
-      if (error instanceof AxiosError) {
+      const url = this.buildUrl(path, options?.params);
+      const init: RequestInit = {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+      };
+      if (options?.body !== undefined) {
+        init.body = JSON.stringify(options.body);
+      }
+      const response = await fetch(url, init);
+      const data: any = await response.json();
+      if (!response.ok) {
         return {
           success: false,
-          error: error.message,
-          error_info: error.response?.data?.error || error.response?.statusText,
+          error: data?.error || response.statusText,
+          error_info: data?.error_info || `HTTP ${response.status}`,
         };
       }
+      return data as PipedriveResponse<T>;
+    } catch (error) {
       return {
         success: false,
-        error: 'An unexpected error occurred',
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
       };
     }
   }
@@ -258,15 +263,11 @@ export class PipedriveClient {
     person_id?: number;
     org_id?: number;
   }): Promise<PipedriveResponse<Deal[]>> {
-    return this.handleRequest<Deal[]>(
-      this.client.get('/deals', { params })
-    );
+    return this.handleRequest<Deal[]>('GET', '/deals', { params });
   }
 
   async getDeal(id: number): Promise<PipedriveResponse<Deal>> {
-    return this.handleRequest<Deal>(
-      this.client.get(`/deals/${id}`)
-    );
+    return this.handleRequest<Deal>('GET', `/deals/${id}`);
   }
 
   async searchDeals(term: string, params?: {
@@ -277,11 +278,7 @@ export class PipedriveClient {
     start?: number;
     limit?: number;
   }): Promise<PipedriveResponse<SearchResult[]>> {
-    return this.handleRequest<SearchResult[]>(
-      this.client.get('/deals/search', {
-        params: { term, ...params }
-      })
-    );
+    return this.handleRequest<SearchResult[]>('GET', '/deals/search', { params: { term, ...params } });
   }
 
   async getPersons(params?: {
@@ -291,15 +288,11 @@ export class PipedriveClient {
     filter_id?: number;
     first_char?: string;
   }): Promise<PipedriveResponse<Person[]>> {
-    return this.handleRequest<Person[]>(
-      this.client.get('/persons', { params })
-    );
+    return this.handleRequest<Person[]>('GET', '/persons', { params });
   }
 
   async getPerson(id: number): Promise<PipedriveResponse<Person>> {
-    return this.handleRequest<Person>(
-      this.client.get(`/persons/${id}`)
-    );
+    return this.handleRequest<Person>('GET', `/persons/${id}`);
   }
 
   async searchPersons(term: string, params?: {
@@ -309,11 +302,7 @@ export class PipedriveClient {
     start?: number;
     limit?: number;
   }): Promise<PipedriveResponse<SearchResult[]>> {
-    return this.handleRequest<SearchResult[]>(
-      this.client.get('/persons/search', {
-        params: { term, ...params }
-      })
-    );
+    return this.handleRequest<SearchResult[]>('GET', '/persons/search', { params: { term, ...params } });
   }
 
   async getOrganizations(params?: {
@@ -323,15 +312,11 @@ export class PipedriveClient {
     filter_id?: number;
     first_char?: string;
   }): Promise<PipedriveResponse<Organization[]>> {
-    return this.handleRequest<Organization[]>(
-      this.client.get('/organizations', { params })
-    );
+    return this.handleRequest<Organization[]>('GET', '/organizations', { params });
   }
 
   async getOrganization(id: number): Promise<PipedriveResponse<Organization>> {
-    return this.handleRequest<Organization>(
-      this.client.get(`/organizations/${id}`)
-    );
+    return this.handleRequest<Organization>('GET', `/organizations/${id}`);
   }
 
   async searchOrganizations(term: string, params?: {
@@ -340,35 +325,23 @@ export class PipedriveClient {
     start?: number;
     limit?: number;
   }): Promise<PipedriveResponse<SearchResult[]>> {
-    return this.handleRequest<SearchResult[]>(
-      this.client.get('/organizations/search', {
-        params: { term, ...params }
-      })
-    );
+    return this.handleRequest<SearchResult[]>('GET', '/organizations/search', { params: { term, ...params } });
   }
 
   async getPipelines(): Promise<PipedriveResponse<Pipeline[]>> {
-    return this.handleRequest<Pipeline[]>(
-      this.client.get('/pipelines')
-    );
+    return this.handleRequest<Pipeline[]>('GET', '/pipelines');
   }
 
   async getPipeline(id: number): Promise<PipedriveResponse<Pipeline>> {
-    return this.handleRequest<Pipeline>(
-      this.client.get(`/pipelines/${id}`)
-    );
+    return this.handleRequest<Pipeline>('GET', `/pipelines/${id}`);
   }
 
   async getStages(pipeline_id?: number): Promise<PipedriveResponse<Stage[]>> {
-    return this.handleRequest<Stage[]>(
-      this.client.get('/stages', { params: { pipeline_id } })
-    );
+    return this.handleRequest<Stage[]>('GET', '/stages', { params: { pipeline_id } });
   }
 
   async getStage(id: number): Promise<PipedriveResponse<Stage>> {
-    return this.handleRequest<Stage>(
-      this.client.get(`/stages/${id}`)
-    );
+    return this.handleRequest<Stage>('GET', `/stages/${id}`);
   }
 
   async getActivities(params?: {
@@ -379,15 +352,11 @@ export class PipedriveClient {
     type?: string;
     done?: 0 | 1;
   }): Promise<PipedriveResponse<Activity[]>> {
-    return this.handleRequest<Activity[]>(
-      this.client.get('/activities', { params })
-    );
+    return this.handleRequest<Activity[]>('GET', '/activities', { params });
   }
 
   async getActivity(id: number): Promise<PipedriveResponse<Activity>> {
-    return this.handleRequest<Activity>(
-      this.client.get(`/activities/${id}`)
-    );
+    return this.handleRequest<Activity>('GET', `/activities/${id}`);
   }
 
   async getNotes(params?: {
@@ -401,15 +370,11 @@ export class PipedriveClient {
     pinned_to_person_flag?: 0 | 1;
     pinned_to_organization_flag?: 0 | 1;
   }): Promise<PipedriveResponse<Note[]>> {
-    return this.handleRequest<Note[]>(
-      this.client.get('/notes', { params })
-    );
+    return this.handleRequest<Note[]>('GET', '/notes', { params });
   }
 
   async getNote(id: number): Promise<PipedriveResponse<Note>> {
-    return this.handleRequest<Note>(
-      this.client.get(`/notes/${id}`)
-    );
+    return this.handleRequest<Note>('GET', `/notes/${id}`);
   }
 
   async searchItems(term: string, params?: {
@@ -421,50 +386,42 @@ export class PipedriveClient {
     start?: number;
     limit?: number;
   }): Promise<PipedriveResponse<SearchResult[]>> {
-    return this.handleRequest<SearchResult[]>(
-      this.client.get('/itemSearch', {
-        params: { term, ...params }
-      })
-    );
+    return this.handleRequest<SearchResult[]>('GET', '/itemSearch', { params: { term, ...params } });
   }
 
   async getUsers(params?: {
     start?: number;
     limit?: number;
   }): Promise<PipedriveResponse<User[]>> {
-    return this.handleRequest<User[]>(
-      this.client.get('/users', { params })
-    );
+    return this.handleRequest<User[]>('GET', '/users', { params });
   }
 
   async getUser(id: number): Promise<PipedriveResponse<User>> {
-    return this.handleRequest<User>(
-      this.client.get(`/users/${id}`)
-    );
+    return this.handleRequest<User>('GET', `/users/${id}`);
   }
 
   async getCurrentUser(): Promise<PipedriveResponse<User>> {
-    return this.handleRequest<User>(
-      this.client.get('/users/me')
-    );
+    return this.handleRequest<User>('GET', '/users/me');
   }
 
-  // Generic method to make raw requests to Pipedrive API
-  async makeRequest(path: string, params?: any): Promise<PipedriveResponse<any>> {
-    if (path.includes('?')) {
-      // Path already has query params, just append api_token
-      const separator = path.includes('api_token') ? '&' : '&';
-      path += `${separator}api_token=${this.apiToken}`;
-    } else if (params) {
-      // Use existing params handling
-      return this.handleRequest<any>(
-        this.client.get(path, { params })
-      );
-    }
-    
-    return this.handleRequest<any>(
-      this.client.get(path)
-    );
+  async get<T = any>(path: string, params?: any): Promise<PipedriveResponse<T>> {
+    return this.handleRequest<T>('GET', path, { params });
+  }
+
+  async post<T = any>(path: string, data?: any): Promise<PipedriveResponse<T>> {
+    return this.handleRequest<T>('POST', path, { body: data });
+  }
+
+  async put<T = any>(path: string, data?: any): Promise<PipedriveResponse<T>> {
+    return this.handleRequest<T>('PUT', path, { body: data });
+  }
+
+  async patch<T = any>(path: string, data?: any): Promise<PipedriveResponse<T>> {
+    return this.handleRequest<T>('PATCH', path, { body: data });
+  }
+
+  async deleteRequest<T = any>(path: string): Promise<PipedriveResponse<T>> {
+    return this.handleRequest<T>('DELETE', path);
   }
 
   // Token-optimized methods
@@ -635,16 +592,13 @@ export class PipedriveClient {
     }
 
     // Get deals within current quarter date range
-    const response = await this.handleRequest<Deal[]>(
-      this.client.get('/deals', {
-        params: {
-          ...params,
-          start: 0,
-          limit: Math.min(params?.limit || 50, 100),
-          // Note: Pipedrive API filtering by date might need to be done client-side
-        }
-      })
-    );
+    const response = await this.handleRequest<Deal[]>('GET', '/deals', {
+      params: {
+        ...params,
+        start: 0,
+        limit: Math.min(params?.limit || 50, 100),
+      }
+    });
 
     // Filter deals by current quarter (client-side filtering since Pipedrive API date filtering is limited)
     if (response.success && response.data) {

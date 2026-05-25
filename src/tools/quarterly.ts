@@ -1,65 +1,53 @@
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { FastMCP } from "fastmcp";
+import { z } from "zod";
+import { PipedriveClient } from "../pipedrive-client.js";
+import { addDateContextToResponse } from "../utils/date-context.js";
 
-export const quarterlyTools: Tool[] = [
-  {
-    name: 'get_current_quarter_deals',
-    description: 'Get deals for the current quarter with date context (automatically uses correct quarter based on today\'s date)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        status: {
-          type: 'string',
-          enum: ['all_not_deleted', 'open', 'won', 'lost'],
-          description: 'Filter by deal status (default: all_not_deleted)',
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by specific user/salesperson',
-        },
-        limit: {
-          type: 'number',
-          description: 'Max number of deals to return (default: 50)',
-        },
-      },
+export function registerQuarterlyTools(server: FastMCP, client: PipedriveClient) {
+  server.addTool({
+    name: "get_current_quarter_deals",
+    description: "Get deals from the current quarter with date context",
+    parameters: z.object({
+      status: z.enum(["all_not_deleted", "open", "won", "lost"]).optional(),
+      user_id: z.number().optional(),
+      limit: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const result = await client.getCurrentQuarterDeals(args);
+      const withContext = addDateContextToResponse(result);
+      return JSON.stringify(withContext, null, 2);
     },
-  },
-  {
-    name: 'get_quarter_summary',
-    description: 'Get comprehensive quarterly summary with key metrics and current quarter context',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        quarter: {
-          type: 'string',
-          enum: ['Q1', 'Q2', 'Q3', 'Q4', 'current'],
-          description: 'Which quarter to analyze (default: current)',
-        },
-        year: {
-          type: 'number',
-          description: 'Year for the quarter (default: current year)',
-        },
-        user_id: {
-          type: 'number',
-          description: 'Filter by specific user (optional)',
-        },
-      },
+  });
+
+  server.addTool({
+    name: "get_quarter_summary",
+    description: "Get a summary of deals for a specific quarter",
+    parameters: z.object({
+      quarter: z.enum(["Q1", "Q2", "Q3", "Q4", "current"]).optional().describe("Quarter (default: current)"),
+      year: z.number().optional(),
+      user_id: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const result = await client.getQuarterSummary(
+        args.quarter || "current",
+        args.year,
+        args.user_id
+      );
+      const withContext = addDateContextToResponse(result);
+      return JSON.stringify(withContext, null, 2);
     },
-  },
-  {
-    name: 'get_quarterly_progress',
-    description: 'Get progress tracking for current quarter with forecasting data and date awareness',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        user_id: {
-          type: 'number',
-          description: 'Filter by specific user (optional)',
-        },
-        include_forecast: {
-          type: 'boolean',
-          description: 'Include deal probability-based forecasting (default: true)',
-        },
-      },
+  });
+
+  server.addTool({
+    name: "get_quarterly_progress",
+    description: "Get quarterly progress report for the current quarter",
+    parameters: z.object({
+      user_id: z.number().optional(),
+    }),
+    execute: async (args) => {
+      const result = await client.getQuarterSummary("current", undefined, args.user_id);
+      const withContext = addDateContextToResponse(result);
+      return JSON.stringify(withContext, null, 2);
     },
-  },
-];
+  });
+}

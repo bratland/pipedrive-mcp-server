@@ -1,250 +1,124 @@
-import express, { Request, Response } from 'express';
-import { PipedriveClient } from './pipedrive-client.js';
-import dotenv from 'dotenv';
+#!/usr/bin/env node
+
+import { FastMCP } from "fastmcp";
+import { PipedriveClient } from "./pipedrive-client.js";
+import { registerDealTools } from "./tools/deals.js";
+import { registerPersonTools } from "./tools/persons.js";
+import { registerOrganizationTools } from "./tools/organizations.js";
+import { registerActivityTools } from "./tools/activities.js";
+import { registerActivityTypeTools } from "./tools/activity-types.js";
+import { registerNoteTools } from "./tools/notes.js";
+import { registerLeadTools } from "./tools/leads.js";
+import { registerLeadLabelTools } from "./tools/lead-labels.js";
+import { registerProductTools } from "./tools/products.js";
+import { registerPipelineTools } from "./tools/pipelines.js";
+import { registerStageTools } from "./tools/stages.js";
+import { registerUserTools } from "./tools/users.js";
+import { registerGoalTools } from "./tools/goals.js";
+import { registerFileTools } from "./tools/files.js";
+import { registerFilterTools } from "./tools/filters.js";
+import { registerWebhookTools } from "./tools/webhooks.js";
+import { registerDealFieldTools } from "./tools/deal-fields.js";
+import { registerPersonFieldTools } from "./tools/person-fields.js";
+import { registerOrgFieldTools } from "./tools/org-fields.js";
+import { registerProductFieldTools } from "./tools/product-fields.js";
+import { registerCurrencyTools } from "./tools/currencies.js";
+import { registerRoleTools } from "./tools/roles.js";
+import { registerTeamTools } from "./tools/teams.js";
+import { registerMailTools } from "./tools/mail.js";
+import { registerSubscriptionTools } from "./tools/subscriptions.js";
+import { registerCallLogTools } from "./tools/call-logs.js";
+import { registerSearchTools } from "./tools/search.js";
+import { registerRecentTools } from "./tools/recents.js";
+import { registerOptimizedTools } from "./tools/optimized.js";
+import { registerQuarterlyTools } from "./tools/quarterly.js";
+import dotenv from "dotenv";
+import http from "http";
 
 dotenv.config();
 
-const app = express();
-app.use(express.json());
-
-const PORT = process.env.PORT || 8080;
 const apiToken = process.env.PIPEDRIVE_API_TOKEN;
-
 if (!apiToken) {
-  console.error('Error: PIPEDRIVE_API_TOKEN environment variable is not set');
+  console.error("Error: PIPEDRIVE_API_TOKEN environment variable is not set");
   process.exit(1);
 }
 
+const serverSecret = process.env.MCP_SERVER_SECRET;
+if (!serverSecret) {
+  console.error(
+    "Error: MCP_SERVER_SECRET environment variable is not set. " +
+      "Generate one with: openssl rand -hex 32"
+  );
+  process.exit(1);
+}
+
+const port = parseInt(process.env.PORT || "3100", 10);
+const host = process.env.HOST || "0.0.0.0";
+
 const client = new PipedriveClient({ apiToken });
 
-// Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'healthy', service: 'pipedrive-mcp-server' });
-});
+type AuthSession = { authenticated: true };
 
-// Root endpoint
-app.get('/', (_req: Request, res: Response) => {
-  res.json({
-    name: 'Pipedrive MCP Server',
-    version: '1.0.0',
-    endpoints: [
-      '/health',
-      '/api/deals',
-      '/api/deals/:id',
-      '/api/deals/search',
-      '/api/persons',
-      '/api/persons/:id',
-      '/api/persons/search',
-      '/api/organizations',
-      '/api/organizations/:id',
-      '/api/organizations/search',
-      '/api/pipelines',
-      '/api/pipelines/:id',
-      '/api/stages',
-      '/api/stages/:id',
-      '/api/activities',
-      '/api/activities/:id',
-      '/api/notes',
-      '/api/notes/:id',
-      '/api/search'
-    ]
-  });
-});
-
-// Deals endpoints
-app.get('/api/deals', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getDeals(req.query as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/deals/search', async (req: Request, res: Response) => {
-  try {
-    const { term, ...params } = req.query;
-    if (!term) {
-      return res.status(400).json({ error: 'Search term is required' });
+const server = new FastMCP<AuthSession>({
+  name: "pipedrive-mcp-server",
+  version: "1.0.0",
+  health: {
+    enabled: true,
+    path: "/health",
+    message: "ok",
+  },
+  authenticate: async (request: http.IncomingMessage) => {
+    const auth = request.headers.authorization;
+    if (!auth?.startsWith("Bearer ")) {
+      throw new Error("Missing or invalid Authorization header");
     }
-    const result = await client.searchDeals(term as string, params as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/deals/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getDeal(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Persons endpoints
-app.get('/api/persons', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getPersons(req.query as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/persons/search', async (req: Request, res: Response) => {
-  try {
-    const { term, ...params } = req.query;
-    if (!term) {
-      return res.status(400).json({ error: 'Search term is required' });
+    const token = auth.slice(7);
+    if (token !== serverSecret) {
+      throw new Error("Invalid server secret");
     }
-    const result = await client.searchPersons(term as string, params as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
+    return { authenticated: true };
+  },
 });
 
-app.get('/api/persons/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getPerson(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
+registerDealTools(server, client);
+registerPersonTools(server, client);
+registerOrganizationTools(server, client);
+registerActivityTools(server, client);
+registerActivityTypeTools(server, client);
+registerNoteTools(server, client);
+registerLeadTools(server, client);
+registerLeadLabelTools(server, client);
+registerProductTools(server, client);
+registerPipelineTools(server, client);
+registerStageTools(server, client);
+registerUserTools(server, client);
+registerGoalTools(server, client);
+registerFileTools(server, client);
+registerFilterTools(server, client);
+registerWebhookTools(server, client);
+registerDealFieldTools(server, client);
+registerPersonFieldTools(server, client);
+registerOrgFieldTools(server, client);
+registerProductFieldTools(server, client);
+registerCurrencyTools(server, client);
+registerRoleTools(server, client);
+registerTeamTools(server, client);
+registerMailTools(server, client);
+registerSubscriptionTools(server, client);
+registerCallLogTools(server, client);
+registerSearchTools(server, client);
+registerRecentTools(server, client);
+registerOptimizedTools(server, client);
+registerQuarterlyTools(server, client);
 
-// Organizations endpoints
-app.get('/api/organizations', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getOrganizations(req.query as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/organizations/search', async (req: Request, res: Response) => {
-  try {
-    const { term, ...params } = req.query;
-    if (!term) {
-      return res.status(400).json({ error: 'Search term is required' });
-    }
-    const result = await client.searchOrganizations(term as string, params as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/organizations/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getOrganization(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Pipelines endpoints
-app.get('/api/pipelines', async (_req: Request, res: Response) => {
-  try {
-    const result = await client.getPipelines();
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/pipelines/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getPipeline(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Stages endpoints
-app.get('/api/stages', async (req: Request, res: Response) => {
-  try {
-    const pipeline_id = req.query.pipeline_id ? parseInt(req.query.pipeline_id as string) : undefined;
-    const result = await client.getStages(pipeline_id);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/stages/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getStage(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Activities endpoints
-app.get('/api/activities', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getActivities(req.query as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/activities/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getActivity(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Notes endpoints
-app.get('/api/notes', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getNotes(req.query as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-app.get('/api/notes/:id', async (req: Request, res: Response) => {
-  try {
-    const result = await client.getNote(parseInt(req.params.id));
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Search endpoint
-app.get('/api/search', async (req: Request, res: Response) => {
-  try {
-    const { term, ...params } = req.query;
-    if (!term) {
-      return res.status(400).json({ error: 'Search term is required' });
-    }
-    const result = await client.searchItems(term as string, params as any);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// Error handling middleware
-app.use((err: Error, _req: Request, res: Response, _next: any) => {
-  console.error('Error:', err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`Pipedrive MCP HTTP Server running on port ${PORT}`);
+server.start({
+  transportType: "httpStream",
+  httpStream: {
+    port,
+    host,
+  },
+}).then(() => {
+  console.log(`Pipedrive MCP Server (HTTP Stream) listening on ${host}:${port}`);
+  console.log(`MCP endpoint: http://${host}:${port}/mcp`);
+  console.log(`Health check: http://${host}:${port}/health`);
 });
