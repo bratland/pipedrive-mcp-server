@@ -36,10 +36,10 @@ pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:.75rem
 <body>
 <div class="card">
   <h1>Pipedrive MCP Server <span class="tag">187 tools</span></h1>
-  <p class="sub">Generera en MCP-anslutnings-URL for Claude Desktop, Claude Code, eller annan MCP-klient.</p>
+  <p class="sub">Klistra in din Pipedrive API-token for att generera en personlig MCP-anslutnings-URL.</p>
   <div>
-    <label for="key">Server-nyckel</label>
-    <input type="password" id="key" placeholder="Klistra in nyckeln du fatt" autocomplete="off">
+    <label for="key">Din Pipedrive API-token</label>
+    <input type="password" id="key" placeholder="Hamta fran Pipedrive > Settings > Personal preferences > API" autocomplete="off">
   </div>
   <button onclick="generate()">Generera URL</button>
   <div class="output" id="output">
@@ -58,7 +58,7 @@ pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:.75rem
       <pre id="config-val"></pre>
     </div>
   </div>
-  <p class="info">Nyckeln skickas som URL-parameter. Dela aldrig URL:en offentligt.</p>
+  <p class="info">Din API-token bakas in i URL:en. Dela aldrig URL:en med andra - den ger tillgang till ditt Pipedrive-konto.</p>
 </div>
 <script>
 const BASE="${baseUrl}";

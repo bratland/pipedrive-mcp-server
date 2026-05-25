@@ -206,7 +206,7 @@ export interface SearchResult {
 
 export class PipedriveClient {
   private baseUrl: string;
-  private apiToken: string;
+  public apiToken: string;
 
   constructor(config: PipedriveConfig) {
     this.apiToken = config.apiToken;

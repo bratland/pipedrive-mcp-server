@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleMessage, rpcError, serverSecret, SESSION_ID } from "../_shared";
+import { handleMessage, rpcError, client, SESSION_ID } from "../_shared";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -9,13 +9,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  const pathKey = typeof req.query.key === "string" ? req.query.key : undefined;
-  const bearer = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : undefined;
-  const token = bearer || pathKey;
-
-  if (token !== serverSecret) {
-    return res.status(401).json(rpcError(null, -32000, "Unauthorized"));
+  const pipedriveToken = typeof req.query.key === "string" ? req.query.key : undefined;
+  if (!pipedriveToken || pipedriveToken.length < 10) {
+    return res.status(401).json(rpcError(null, -32000, "Missing or invalid API token"));
   }
+
+  client.apiToken = pipedriveToken;
 
   if (req.method === "GET") {
     const accept = req.headers.accept || "";

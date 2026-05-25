@@ -40,11 +40,10 @@ export interface McpTool {
 }
 
 export const tools: McpTool[] = [];
-export const serverSecret = process.env.MCP_SERVER_SECRET!;
 export const SESSION_ID = "pipedrive-mcp-static-session";
 
 const toolCollector = { addTool(tool: McpTool) { tools.push(tool); } };
-const client = new PipedriveClient({ apiToken: process.env.PIPEDRIVE_API_TOKEN! });
+export const client = new PipedriveClient({ apiToken: "placeholder" });
 
 registerDealTools(toolCollector as any, client);
 registerPersonTools(toolCollector as any, client);
