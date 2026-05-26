@@ -39,7 +39,7 @@ pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:.75rem
   <p class="sub">Klistra in din Pipedrive API-token for att generera en personlig MCP-anslutnings-URL.</p>
   <div>
     <label for="key">Din Pipedrive API-token</label>
-    <input type="password" id="key" placeholder="Hamta fran Pipedrive > Settings > Personal preferences > API" autocomplete="off">
+    <input type="text" id="key" placeholder="Hamta fran Pipedrive > Settings > Personal preferences > API" autocomplete="off">
   </div>
   <button onclick="generate()">Generera URL</button>
   <div class="output" id="output">
