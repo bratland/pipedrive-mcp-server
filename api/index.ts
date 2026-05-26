@@ -35,7 +35,7 @@ pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:.75rem
 </head>
 <body>
 <div class="card">
-  <h1>Pipedrive MCP Server <span class="tag">187 tools</span></h1>
+  <h1>Pipedrive MCP Server <span class="tag">4 tools</span></h1>
   <p class="sub">Klistra in din Pipedrive API-token for att generera en personlig MCP-anslutnings-URL.</p>
   <div>
     <label for="key">Din Pipedrive API-token</label>
