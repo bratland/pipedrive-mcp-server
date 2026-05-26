@@ -2,6 +2,18 @@
  * Date context utilities for MCP server responses
  */
 
+const TZ = 'Europe/Stockholm';
+
+function stockholmNow(): { year: number; month: number; date: string } {
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const parts = fmt.formatToParts(new Date());
+  const year = Number(parts.find(p => p.type === 'year')!.value);
+  const month = Number(parts.find(p => p.type === 'month')!.value);
+  const day = parts.find(p => p.type === 'day')!.value;
+  const date = `${year}-${String(month).padStart(2, '0')}-${day}`;
+  return { year, month, date };
+}
+
 export interface DateContext {
   current_date: string;
   current_quarter: string;
@@ -22,23 +34,11 @@ export interface DateContext {
  * Get current date context information
  */
 export function getCurrentDateContext(): DateContext {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // JavaScript months are 0-indexed
-  
-  // Determine current quarter
-  let currentQuarter: string;
-  if (month >= 1 && month <= 3) {
-    currentQuarter = 'Q1';
-  } else if (month >= 4 && month <= 6) {
-    currentQuarter = 'Q2';
-  } else if (month >= 7 && month <= 9) {
-    currentQuarter = 'Q3';
-  } else {
-    currentQuarter = 'Q4';
-  }
+  const { year, month, date } = stockholmNow();
 
-  // Define quarter boundaries for current year
+  const q = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+  const currentQuarter = `Q${q}`;
+
   const quarterInfo = {
     q1: { start: `${year}-01-01`, end: `${year}-03-31` },
     q2: { start: `${year}-04-01`, end: `${year}-06-30` },
@@ -46,16 +46,14 @@ export function getCurrentDateContext(): DateContext {
     q4: { start: `${year}-10-01`, end: `${year}-12-31` },
   };
 
-  // Get current quarter dates
   const currentQuarterKey = currentQuarter.toLowerCase() as 'q1' | 'q2' | 'q3' | 'q4';
-  const currentQuarterDates = quarterInfo[currentQuarterKey];
 
   return {
-    current_date: now.toISOString().split('T')[0], // YYYY-MM-DD format
+    current_date: date,
     current_quarter: `${currentQuarter} ${year}`,
     current_year: year,
     quarter_info: quarterInfo,
-    current_quarter_dates: currentQuarterDates,
+    current_quarter_dates: quarterInfo[currentQuarterKey],
   };
 }
 
@@ -91,7 +89,7 @@ export function getCurrentQuarterDateRange(): { start_date: string; end_date: st
  * Get date range filter for specific quarter
  */
 export function getQuarterDateRange(quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4', year?: number): { start_date: string; end_date: string } {
-  const currentYear = year || new Date().getFullYear();
+  const currentYear = year || stockholmNow().year;
   
   const quarters = {
     Q1: { start: `${currentYear}-01-01`, end: `${currentYear}-03-31` },

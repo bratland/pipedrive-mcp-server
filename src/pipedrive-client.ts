@@ -6,6 +6,16 @@ export function runWithToken<T>(token: string, fn: () => T): T {
   return tokenStore.run(token, fn);
 }
 
+function stockholmNow(): { year: number; month: number; date: string } {
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const parts = fmt.formatToParts(new Date());
+  const year = Number(parts.find(p => p.type === 'year')!.value);
+  const month = Number(parts.find(p => p.type === 'month')!.value);
+  const day = parts.find(p => p.type === 'day')!.value;
+  const date = `${year}-${String(month).padStart(2, '0')}-${day}`;
+  return { year, month, date };
+}
+
 export interface PipedriveConfig {
   apiToken: string;
   baseUrl?: string;
@@ -498,7 +508,7 @@ export class PipedriveClient {
     } = params || {};
 
     const overview: any = {
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm' }),
       user_filter: user_id || null,
     };
 
@@ -579,25 +589,17 @@ export class PipedriveClient {
     user_id?: number;
     limit?: number;
   }): Promise<PipedriveResponse<any[]>> {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    
-    // Determine current quarter dates
-    let startDate: string, endDate: string;
-    if (month >= 1 && month <= 3) {
-      startDate = `${year}-01-01`;
-      endDate = `${year}-03-31`;
-    } else if (month >= 4 && month <= 6) {
-      startDate = `${year}-04-01`;
-      endDate = `${year}-06-30`;
-    } else if (month >= 7 && month <= 9) {
-      startDate = `${year}-07-01`;
-      endDate = `${year}-09-30`;
-    } else {
-      startDate = `${year}-10-01`;
-      endDate = `${year}-12-31`;
-    }
+    const { year, month } = stockholmNow();
+
+    const q = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+    const quarters: Record<number, { start: string; end: string }> = {
+      1: { start: `${year}-01-01`, end: `${year}-03-31` },
+      2: { start: `${year}-04-01`, end: `${year}-06-30` },
+      3: { start: `${year}-07-01`, end: `${year}-09-30` },
+      4: { start: `${year}-10-01`, end: `${year}-12-31` },
+    };
+    const startDate = quarters[q].start;
+    const endDate = quarters[q].end;
 
     // Get deals within current quarter date range
     const response = await this.handleRequest<Deal[]>('GET', '/deals', {
@@ -636,43 +638,27 @@ export class PipedriveClient {
   }
 
   async getQuarterSummary(quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'current' = 'current', year?: number, user_id?: number): Promise<PipedriveResponse<any>> {
-    const currentYear = year || new Date().getFullYear();
-    const now = new Date();
-    
-    // Determine quarter dates
+    const sth = stockholmNow();
+    const currentYear = year || sth.year;
+
+    const qMap: Record<string, { start: string; end: string }> = {
+      Q1: { start: `${currentYear}-01-01`, end: `${currentYear}-03-31` },
+      Q2: { start: `${currentYear}-04-01`, end: `${currentYear}-06-30` },
+      Q3: { start: `${currentYear}-07-01`, end: `${currentYear}-09-30` },
+      Q4: { start: `${currentYear}-10-01`, end: `${currentYear}-12-31` },
+    };
+
     let targetQuarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
-    let startDate: string, endDate: string;
-    
+
     if (quarter === 'current') {
-      const month = now.getMonth() + 1;
-      if (month >= 1 && month <= 3) {
-        targetQuarter = 'Q1';
-        startDate = `${currentYear}-01-01`;
-        endDate = `${currentYear}-03-31`;
-      } else if (month >= 4 && month <= 6) {
-        targetQuarter = 'Q2';
-        startDate = `${currentYear}-04-01`;
-        endDate = `${currentYear}-06-30`;
-      } else if (month >= 7 && month <= 9) {
-        targetQuarter = 'Q3';
-        startDate = `${currentYear}-07-01`;
-        endDate = `${currentYear}-09-30`;
-      } else {
-        targetQuarter = 'Q4';
-        startDate = `${currentYear}-10-01`;
-        endDate = `${currentYear}-12-31`;
-      }
+      const q = sth.month <= 3 ? 1 : sth.month <= 6 ? 2 : sth.month <= 9 ? 3 : 4;
+      targetQuarter = `Q${q}` as 'Q1' | 'Q2' | 'Q3' | 'Q4';
     } else {
       targetQuarter = quarter;
-      const quarters = {
-        Q1: { start: `${currentYear}-01-01`, end: `${currentYear}-03-31` },
-        Q2: { start: `${currentYear}-04-01`, end: `${currentYear}-06-30` },
-        Q3: { start: `${currentYear}-07-01`, end: `${currentYear}-09-30` },
-        Q4: { start: `${currentYear}-10-01`, end: `${currentYear}-12-31` },
-      };
-      startDate = quarters[quarter].start;
-      endDate = quarters[quarter].end;
     }
+
+    const startDate = qMap[targetQuarter].start;
+    const endDate = qMap[targetQuarter].end;
 
     try {
       // Get deals for the quarter
@@ -696,7 +682,7 @@ export class PipedriveClient {
       const summary = {
         quarter: `${targetQuarter} ${currentYear}`,
         date_range: { start: startDate, end: endDate },
-        current_date: now.toISOString().split('T')[0],
+        current_date: sth.date,
         is_current_quarter: quarter === 'current',
         metrics: {
           total_deals: quarterDeals.length,
