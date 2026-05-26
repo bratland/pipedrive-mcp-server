@@ -37,30 +37,37 @@ npm run typecheck  # Run TypeScript type checking
 ## Architecture
 
 ### MCP Server Structure
-- **src/index.ts** - Main MCP server entry point, handles tool registration and request routing
+- **src/index.ts** - Main MCP server entry point (stdio transport)
+- **src/http-server.ts** - HTTP stream transport with Bearer/key auth
+- **src/routes.ts** - Shared route table mapping resource+action to Pipedrive API endpoints (used by both CLI and MCP server)
 - **src/cli.ts** - CLI entry point optimized for AI agents (JSON output, compact mode, field selection)
 - **src/pipedrive-client.ts** - Pipedrive API client wrapper with authentication and request handling
-- **src/tools/** - Individual tool implementations for different Pipedrive resources
-  - deals.ts - Deal management operations
-  - persons.ts - Person/contact operations  
-  - organizations.ts - Organization/company operations
-  - activities.ts - Activity and task management
-  - notes.ts - Note operations
-  - search.ts - Search across entities
-  - pipelines.ts - Pipeline and stage operations
-  - users.ts - User/salesperson operations
-  - optimized.ts - Token-optimized tool variants
-  - quarterly.ts - Quarter-based analysis tools
+- **src/tools/unified.ts** - All 4 MCP tools: `pipedrive` (unified dispatch), `pipedrive_overview`, `pipedrive_quarter`, `pipedrive_search`
 - **src/utils/** - Shared utilities
   - token-optimizer.ts - Response summarization for token efficiency
   - date-context.ts - Date/quarter context helpers
+- **api/** - Vercel serverless deployment
+  - _shared.ts - Tool registration and JSON-RPC handler
+  - index.ts - Landing page
+  - mcp/[key].ts - Per-user MCP endpoint (`/api/mcp/{pipedrive_token}`)
+- **tests/** - E2E tests
+  - cli-e2e.test.ts - 37 tests against live Pipedrive API via CLI
+  - deployed-e2e.test.ts - 29 tests against deployed Vercel MCP server
+
+### MCP Tools (4 total)
+| Tool | Purpose |
+|------|---------|
+| `pipedrive` | Unified dispatch: resource + action + id + params. Covers all 28 resources and 170+ actions via shared route table. |
+| `pipedrive_overview` | Multi-step CRM overview (recent deals + activities). Read-only. |
+| `pipedrive_quarter` | Quarterly deal summary with date context. Read-only. |
+| `pipedrive_search` | Cross-entity search with token-optimized output. Read-only. |
 
 ### Key Design Patterns
-1. **Tool-based Architecture**: Each Pipedrive resource type has its own tool module
-2. **Error Handling**: Consistent error responses with Pipedrive API error details
-3. **Authentication**: API key-based authentication passed via environment or config
-4. **Pagination**: Handle Pipedrive's pagination for list operations
-5. **Rate Limiting**: Respect Pipedrive API rate limits
+1. **Unified Dispatch**: Single `pipedrive` tool uses a shared route table to handle all Pipedrive API operations, keeping AI client context overhead minimal
+2. **Shared Route Table**: `src/routes.ts` is the single source of truth for resource/action mappings, used by both CLI and MCP server
+3. **Error Handling**: Consistent error responses with Pipedrive API error details
+4. **Authentication**: API key-based auth via environment, CLI flag, or URL path segment (Vercel deployment)
+5. **Pagination**: Automatic start/limit injection for paginatable routes
 
 ## Pipedrive API Integration Notes
 
@@ -115,11 +122,11 @@ The server should be configured in Claude Desktop's config file:
 
 The CLI outputs structured JSON to stdout, errors to stderr. Designed for piping and programmatic use.
 
-### Resources (28 commands, 159 subcommands)
+### Resources (28 commands)
 ```
-deals           list|get|create|update|delete|search|merge|duplicate|followers|participants|products|activities|flow|files|mail|quarter
-persons         list|get|create|update|delete|search|merge|deals|activities|flow|files|followers
-orgs            list|get|create|update|delete|search|merge|deals|persons|activities|flow|files|followers
+deals           list|get|create|update|delete|search|merge|duplicate|followers|add-follower|remove-follower|participants|add-participant|remove-participant|products|add-product|update-product|remove-product|activities|flow|files|mail|quarter
+persons         list|get|create|update|delete|search|merge|deals|activities|flow|files|followers|add-follower|remove-follower
+orgs            list|get|create|update|delete|search|merge|deals|persons|activities|flow|files|followers|add-follower|remove-follower
 activities      list|get|create|update|delete
 activity-types  list|create|update|delete
 notes           list|get|create|update|delete
@@ -130,7 +137,7 @@ pipelines       list|get|create|update|delete|deals|movement-stats|conversion-st
 stages          list|get|create|update|delete|deals
 users           list|get|me|permissions|roles|settings
 goals           list|get|create|update|delete
-files           list|get|delete
+files           list|get|delete|create-remote|link-remote
 filters         list|get|create|update|delete
 webhooks        list|create|delete
 deal-fields     list|get|create|update|delete
@@ -139,9 +146,9 @@ org-fields      list|get|create|update|delete
 product-fields  list|get|create|update|delete
 currencies      list
 roles           list|get|create|update|delete|assignments|settings
-teams           list|get|create|update|users
+teams           list|get|create|update|users|add-user|remove-user
 mail            list|get|messages|update|delete|message
-subscriptions   get|for-deal|payments|cancel
+subscriptions   get|for-deal|payments|cancel|create-recurring|update-recurring|create-installment|update-installment
 call-logs       list|get|create|delete
 recents         list
 search          items|by-field
