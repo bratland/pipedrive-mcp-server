@@ -30,6 +30,9 @@ button:hover{background:#2563eb}
 .copy.done{color:#22c55e}
 pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:.75rem;font-size:.8125rem;font-family:ui-monospace,monospace;overflow-x:auto;white-space:pre;line-height:1.5;color:#d4d4d4}
 .tag{display:inline-block;background:#1e3a5f;color:#93c5fd;font-size:.6875rem;font-weight:500;padding:.125rem .5rem;border-radius:99px;margin-left:.5rem}
+.hint{color:#737373;font-size:.75rem;margin-top:.5rem;line-height:1.4}
+.hint a{color:#3b82f6;text-decoration:none}
+.hint a:hover{text-decoration:underline}
 .info{color:#737373;font-size:.75rem;margin-top:1.5rem;line-height:1.5}
 </style>
 </head>
@@ -39,7 +42,8 @@ pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:.75rem
   <p class="sub">Klistra in din Pipedrive API-token for att generera en personlig MCP-anslutnings-URL.</p>
   <div>
     <label for="key">Din Pipedrive API-token</label>
-    <input type="text" id="key" placeholder="Hamta fran Pipedrive > Settings > Personal preferences > API" autocomplete="off">
+    <input type="text" id="key" placeholder="40-teckens hex-nyckel fran Pipedrive" autocomplete="off">
+    <p class="hint">Hitta din token under <a href="https://app.pipedrive.com/settings/api" target="_blank" rel="noopener">Settings &rarr; Personal preferences &rarr; API</a></p>
   </div>
   <button onclick="generate()">Generera URL</button>
   <div class="output" id="output">
