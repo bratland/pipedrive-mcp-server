@@ -1,3 +1,11 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const tokenStore = new AsyncLocalStorage<string>();
+
+export function runWithToken<T>(token: string, fn: () => T): T {
+  return tokenStore.run(token, fn);
+}
+
 export interface PipedriveConfig {
   apiToken: string;
   baseUrl?: string;
@@ -215,7 +223,7 @@ export class PipedriveClient {
 
   private buildUrl(path: string, params?: Record<string, any>): string {
     const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
-    url.searchParams.set('api_token', this.apiToken);
+    url.searchParams.set('api_token', tokenStore.getStore() ?? this.apiToken);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined && value !== null) {

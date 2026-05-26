@@ -1,34 +1,5 @@
-import { PipedriveClient } from "../src/pipedrive-client";
-import { registerDealTools } from "../src/tools/deals";
-import { registerPersonTools } from "../src/tools/persons";
-import { registerOrganizationTools } from "../src/tools/organizations";
-import { registerActivityTools } from "../src/tools/activities";
-import { registerActivityTypeTools } from "../src/tools/activity-types";
-import { registerNoteTools } from "../src/tools/notes";
-import { registerLeadTools } from "../src/tools/leads";
-import { registerLeadLabelTools } from "../src/tools/lead-labels";
-import { registerProductTools } from "../src/tools/products";
-import { registerPipelineTools } from "../src/tools/pipelines";
-import { registerStageTools } from "../src/tools/stages";
-import { registerUserTools } from "../src/tools/users";
-import { registerGoalTools } from "../src/tools/goals";
-import { registerFileTools } from "../src/tools/files";
-import { registerFilterTools } from "../src/tools/filters";
-import { registerWebhookTools } from "../src/tools/webhooks";
-import { registerDealFieldTools } from "../src/tools/deal-fields";
-import { registerPersonFieldTools } from "../src/tools/person-fields";
-import { registerOrgFieldTools } from "../src/tools/org-fields";
-import { registerProductFieldTools } from "../src/tools/product-fields";
-import { registerCurrencyTools } from "../src/tools/currencies";
-import { registerRoleTools } from "../src/tools/roles";
-import { registerTeamTools } from "../src/tools/teams";
-import { registerMailTools } from "../src/tools/mail";
-import { registerSubscriptionTools } from "../src/tools/subscriptions";
-import { registerCallLogTools } from "../src/tools/call-logs";
-import { registerSearchTools } from "../src/tools/search";
-import { registerRecentTools } from "../src/tools/recents";
-import { registerOptimizedTools } from "../src/tools/optimized";
-import { registerQuarterlyTools } from "../src/tools/quarterly";
+import { PipedriveClient, runWithToken } from "../src/pipedrive-client";
+import { registerUnifiedTools } from "../src/tools/unified";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -36,6 +7,7 @@ export interface McpTool {
   name: string;
   description?: string;
   parameters?: any;
+  annotations?: any;
   execute: (args: any) => Promise<any>;
 }
 
@@ -43,38 +15,9 @@ export const tools: McpTool[] = [];
 export const SESSION_ID = "pipedrive-mcp-static-session";
 
 const toolCollector = { addTool(tool: McpTool) { tools.push(tool); } };
-export const client = new PipedriveClient({ apiToken: "placeholder" });
+const client = new PipedriveClient({ apiToken: "placeholder" });
 
-registerDealTools(toolCollector as any, client);
-registerPersonTools(toolCollector as any, client);
-registerOrganizationTools(toolCollector as any, client);
-registerActivityTools(toolCollector as any, client);
-registerActivityTypeTools(toolCollector as any, client);
-registerNoteTools(toolCollector as any, client);
-registerLeadTools(toolCollector as any, client);
-registerLeadLabelTools(toolCollector as any, client);
-registerProductTools(toolCollector as any, client);
-registerPipelineTools(toolCollector as any, client);
-registerStageTools(toolCollector as any, client);
-registerUserTools(toolCollector as any, client);
-registerGoalTools(toolCollector as any, client);
-registerFileTools(toolCollector as any, client);
-registerFilterTools(toolCollector as any, client);
-registerWebhookTools(toolCollector as any, client);
-registerDealFieldTools(toolCollector as any, client);
-registerPersonFieldTools(toolCollector as any, client);
-registerOrgFieldTools(toolCollector as any, client);
-registerProductFieldTools(toolCollector as any, client);
-registerCurrencyTools(toolCollector as any, client);
-registerRoleTools(toolCollector as any, client);
-registerTeamTools(toolCollector as any, client);
-registerMailTools(toolCollector as any, client);
-registerSubscriptionTools(toolCollector as any, client);
-registerCallLogTools(toolCollector as any, client);
-registerSearchTools(toolCollector as any, client);
-registerRecentTools(toolCollector as any, client);
-registerOptimizedTools(toolCollector as any, client);
-registerQuarterlyTools(toolCollector as any, client);
+registerUnifiedTools(toolCollector as any, client);
 
 function schemaToJsonSchema(schema: any): any {
   try {
@@ -88,7 +31,7 @@ export function rpcError(id: any, code: number, message: string) {
   return { error: { code, message }, id, jsonrpc: "2.0" };
 }
 
-export async function handleMessage(msg: any) {
+export async function handleMessage(msg: any, pipedriveToken?: string) {
   if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0") {
     return rpcError(msg?.id ?? null, -32600, "Invalid Request");
   }
@@ -123,7 +66,8 @@ export async function handleMessage(msg: any) {
       const tool = tools.find((t) => t.name === params?.name);
       if (!tool) return rpcError(id, -32602, `Tool not found: ${params?.name}`);
       try {
-        const result = await tool.execute(params?.arguments ?? {});
+        const run = () => tool.execute(params?.arguments ?? {});
+        const result = pipedriveToken ? await runWithToken(pipedriveToken, run) : await run();
         const content = typeof result === "string"
           ? [{ type: "text", text: result }]
           : result?.content ?? [{ type: "text", text: JSON.stringify(result) }];

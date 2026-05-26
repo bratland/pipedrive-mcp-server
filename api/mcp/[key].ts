@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleMessage, rpcError, client, SESSION_ID } from "../_shared";
+import { handleMessage, rpcError, SESSION_ID } from "../_shared";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -13,8 +13,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!pipedriveToken || pipedriveToken.length < 10) {
     return res.status(401).json(rpcError(null, -32000, "Missing or invalid API token"));
   }
-
-  client.apiToken = pipedriveToken;
 
   if (req.method === "GET") {
     const accept = req.headers.accept || "";
@@ -35,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const responses: any[] = [];
 
   for (const msg of messages) {
-    const response = await handleMessage(msg);
+    const response = await handleMessage(msg, pipedriveToken);
     if (response) responses.push(response);
   }
 
