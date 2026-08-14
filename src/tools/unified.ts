@@ -178,8 +178,28 @@ export function registerUnifiedTools(server: FastMCP, client: PipedriveClient) {
     execute: async ({ term, ...params }) => {
       const safeParams = { ...params, limit: Math.min(params.limit || 10, 20) };
       const result = await client.searchItems(term, safeParams);
-      const optimized = optimizeResponse(result, "deals", { maxItems: 10, summarizeItems: true });
-      return JSON.stringify(optimized, null, 2);
+      // /itemSearch wraps results as data.items[{ result_score, item }] rather than
+      // a flat entity array, so optimizeResponse's per-entity summarizers would
+      // strip every field. Compact each hit here instead.
+      const hits: any[] = (result.data as any)?.items ?? [];
+      const items = hits.map(({ result_score, item }: any) => ({
+        id: item.id,
+        type: item.type,
+        title: item.title ?? item.name,
+        ...(item.primary_email ? { email: item.primary_email } : {}),
+        ...(item.phones?.length ? { phone: item.phones[0] } : {}),
+        ...(item.organization ? { organization: item.organization.name } : {}),
+        ...(item.status ? { status: item.status } : {}),
+        ...(item.value !== undefined ? { value: item.value, currency: item.currency } : {}),
+        ...(item.owner ? { owner_id: item.owner.id } : {}),
+        result_score,
+      }));
+      return JSON.stringify({
+        success: true,
+        data: items,
+        meta: { total_count: items.length },
+        additional_data: (result as any).additional_data,
+      }, null, 2);
     },
   });
 }
